@@ -1,15 +1,28 @@
 # Travel-Booking-Agent
 
-A travel booking assistant that helps users plan their trips by providing recommendations for flights, hotels, and activities based on their preferences and requirements.
+An intelligent terminal-based travel booking assistant that combines Booking.com's powerful API with OpenAI to provide personalized hotel recommendations and travel planning assistance.
 
 ## Features
 
-- Interactive chat interface for travel planning
-- Flight search and recommendations
-- Hotel booking assistance
-- Activity and attraction suggestions
-- Budget-friendly options
-- Personalized travel itineraries
+- Interactive command-line interface for travel planning powered by OpenAI
+- Smart hotel search and recommendations using Booking.com API
+- AI-powered ranking and sorting of hotels based on user preferences
+- Detailed hotel information including amenities and reviews
+- Price comparison and budget optimization
+- Location-based nearby hotel search
+- Multi-language support
+- Data caching for faster responses
+
+## Tech Stack
+
+- Python 3.8+
+- OpenAI API for natural language processing
+- Booking.com API via RapidAPI
+- Rich library for beautiful terminal output
+- SQLite for local caching
+- Python-dotenv for environment management
+
+## Project Structure
 
 ## Getting Started
 
