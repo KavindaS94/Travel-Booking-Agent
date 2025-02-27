@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from rich.console import Console
 from datetime import datetime
+from api.openai_api import OpenAIAPI
 
 load_dotenv()
 console = Console()
@@ -209,11 +210,39 @@ class BookingAPI:
         response = requests.get(endpoint, headers=self.headers, params=params)
         return response.json()
 
-    def rank_hotels(self, hotels: list, preferences: str) -> list:
-        """Rank hotels based on user preferences."""
-        # Implementation of ranking logic based on preferences
-        # This is a placeholder and should be replaced with actual implementation
-        return hotels
+    def rank_hotels(self, hotels: list, preferences: str = None) -> list:
+        """Rank hotels based on preferences and ratings."""
+        if not hotels:
+            return []
+
+        def get_hotel_score(hotel):
+            # Get review score (normalized to 0-10 scale)
+            review_score = hotel.get('review_score', {})
+            rating = float(review_score.get('score', 0))
+            
+            # Get facilities for preference matching
+            facilities = set()
+            facilities.update(hotel.get('facilities', []))
+            facilities.update(hotel.get('popular_facilities', []))
+            facilities = {f.lower() for f in facilities}
+            
+            # Calculate preference match score (0-5)
+            preference_score = 0
+            if preferences:
+                pref_list = [p.strip().lower() for p in preferences.split(',')]
+                matches = sum(1 for p in pref_list if any(p in f for f in facilities))
+                preference_score = (matches / len(pref_list)) * 5 if pref_list else 0
+            
+            # Combined score (70% rating, 30% preferences)
+            total_score = (rating * 0.7) + (preference_score * 0.3)
+            
+            return total_score
+
+        # Sort hotels by combined score
+        ranked_hotels = sorted(hotels, key=get_hotel_score, reverse=True)
+        
+        # Return top 3 hotels
+        return ranked_hotels[:3]
 
     def search_hotels_with_preferences(self, 
                                       destination: str, 
@@ -238,9 +267,11 @@ class BookingAPI:
                                 checkout_date: str, 
                                 adults_number: int,
                                 room_number: int = 1,
-                                max_price: float = None) -> Dict[str, Any]:
-        """Search for hotels in multiple destinations."""
+                                max_price: float = None,
+                                preferences: str = None) -> Dict[str, Any]:
+        """Search for hotels in multiple destinations and rank them."""
         all_results = {}
+        openai_api = OpenAIAPI()  # Initialize OpenAI API
         
         for destination in destinations:
             try:
@@ -252,7 +283,19 @@ class BookingAPI:
                     room_number=room_number,
                     max_price=max_price
                 )
-                all_results[destination] = results.get('results', [])
+                
+                # Rank hotels for this location using OpenAI
+                hotels = results.get('results', [])
+                if preferences and hotels:
+                    ranked_hotels = openai_api.rank_hotels_by_preferences(hotels, preferences)
+                else:
+                    # If no preferences, rank by rating
+                    ranked_hotels = sorted(hotels, 
+                                        key=lambda x: float(x.get('review_score', {}).get('score', 0)), 
+                                        reverse=True)[:3]
+                
+                all_results[destination] = ranked_hotels
+                
             except Exception as e:
                 console.print(f"[red]Error searching {destination}: {str(e)}[/red]")
                 all_results[destination] = []

@@ -20,7 +20,8 @@ def search(
     checkout: Optional[str] = typer.Option(None, help="Check-out date (YYYY-MM-DD)"),
     adults: int = typer.Option(2, help="Number of adults"),
     rooms: int = typer.Option(1, help="Number of rooms"),
-    budget: Optional[float] = typer.Option(None, help="Maximum total budget for the entire stay in USD")
+    budget: Optional[float] = typer.Option(None, help="Maximum total budget for the entire stay in USD"),
+    preferences: Optional[str] = typer.Option(None, help="Comma-separated preferences (e.g., 'pool,beach,spa')")
 ):
     """Search for hotels in multiple destinations."""
     # Set default dates if not provided
@@ -46,8 +47,10 @@ def search(
     console.print(f"Adults: {adults}, Rooms: {rooms}")
     if budget:
         console.print(f"Total Budget: ${budget} (approx. ${budget/num_nights:.2f} per night)")
+    if preferences:
+        console.print(f"Preferences: {preferences}")
     
-    with console.status("[bold green]Searching hotels...[/bold green]"):
+    with console.status("[bold green]Searching and ranking hotels...[/bold green]"):
         try:
             results = booking_api.search_multiple_locations(
                 destinations=destination_list,
@@ -55,38 +58,41 @@ def search(
                 checkout_date=checkout,
                 adults_number=adults,
                 room_number=rooms,
-                max_price=budget
+                max_price=budget,
+                preferences=preferences
             )
             
             if not results.get('locations'):
                 console.print("[yellow]No hotels found in any location.[/yellow]")
                 return
             
-            display_multiple_results(results)
+            display_multiple_results(results, show_ranking=True)
                 
         except Exception as e:
             console.print(f"[red]Error: {str(e)}[/red]")
 
-def display_multiple_results(results: dict):
+def display_multiple_results(results: dict, show_ranking: bool = False):
     """Display hotel results for multiple locations."""
     locations_data = results.get('locations', {})
     
     for location, hotels in locations_data.items():
-        console.print(f"\n[bold blue]Results for {location}:[/bold blue]")
+        console.print(f"\n[bold blue]Top Rated Hotels in {location}:[/bold blue]")
         
         if not hotels:
             console.print(f"[yellow]No hotels found in {location}[/yellow]")
             continue
-            
-        display_results({"results": hotels})
+        
+        display_results({"results": hotels}, show_ranking=True)
         console.print("\n" + "="*100)  # Separator between locations
 
-def display_results(results: dict):
+def display_results(results: dict, show_ranking: bool = False):
     """Display hotel results in a formatted table."""
     if not results.get('results'):
         return
         
     table = Table(show_header=True, header_style="bold magenta", width=150)
+    if show_ranking:
+        table.add_column("Rank", style="bold", width=8)
     table.add_column("Hotel ID", style="dim", width=10)
     table.add_column("Hotel Name", width=25)
     table.add_column("Rating", width=20)
@@ -94,7 +100,7 @@ def display_results(results: dict):
     table.add_column("Location & Contact", width=35)
     table.add_column("Facilities", width=35)
 
-    for hotel in results['results']:
+    for idx, hotel in enumerate(results['results'], 1):
         # Format rating
         review_info = hotel.get('review_score', {})
         rating_display = (
@@ -137,14 +143,20 @@ def display_results(results: dict):
         
         facilities = "\n".join(facilities_display) if facilities_display else "No facilities listed"
 
-        table.add_row(
+        row_data = [
             hotel.get('hotel_id', 'N/A'),
             hotel.get('hotel_name', 'N/A'),
             rating_display,
             price_display,
             location_contact,
             facilities
-        )
+        ]
+        
+        if show_ranking:
+            rank_display = f"#{idx}"
+            row_data.insert(0, rank_display)
+            
+        table.add_row(*row_data)
 
     console.print("\n[bold]Found Hotels:[/bold]")
     console.print(table)
