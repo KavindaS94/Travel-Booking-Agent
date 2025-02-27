@@ -90,7 +90,8 @@ class BookingAPI:
                 try:
                     if price_per_night_value != 'N/A':
                         price_per_night_value = float(price_per_night_value)
-                        total_price = price_per_night_value * num_nights
+                        # Calculate total price including all rooms
+                        total_price = price_per_night_value * num_nights * room_number
                 except (ValueError, TypeError):
                     pass
                 
@@ -109,9 +110,11 @@ class BookingAPI:
                     },
                     'price': {
                         'per_night': price_per_night_value,
+                        'per_room': price_per_night_value,
                         'total': total_price,
                         'currency': price_data.get('currency', 'USD'),
-                        'num_nights': num_nights
+                        'num_nights': num_nights,
+                        'num_rooms': room_number
                     },
                     'address': hotel_details.get('address', 'N/A'),
                     'location': f"{hotel_details.get('city', 'N/A')}, {hotel_details.get('country', 'N/A')}",
@@ -228,3 +231,30 @@ class BookingAPI:
             results['results'] = self.rank_hotels(results['results'], preferences)
         
         return results 
+
+    def search_multiple_locations(self, 
+                                destinations: list, 
+                                checkin_date: str, 
+                                checkout_date: str, 
+                                adults_number: int,
+                                room_number: int = 1,
+                                max_price: float = None) -> Dict[str, Any]:
+        """Search for hotels in multiple destinations."""
+        all_results = {}
+        
+        for destination in destinations:
+            try:
+                results = self.search_hotels(
+                    destination=destination,
+                    checkin_date=checkin_date,
+                    checkout_date=checkout_date,
+                    adults_number=adults_number,
+                    room_number=room_number,
+                    max_price=max_price
+                )
+                all_results[destination] = results.get('results', [])
+            except Exception as e:
+                console.print(f"[red]Error searching {destination}: {str(e)}[/red]")
+                all_results[destination] = []
+        
+        return {"locations": all_results} 
