@@ -15,43 +15,47 @@ cache = Cache()
 
 @app.command()
 def search(
-    destination: str = typer.Argument(..., help="Destination city or location"),
+    destination: str,
     checkin: Optional[str] = typer.Option(None, help="Check-in date (YYYY-MM-DD)"),
     checkout: Optional[str] = typer.Option(None, help="Check-out date (YYYY-MM-DD)"),
     adults: int = typer.Option(2, help="Number of adults"),
-    preferences: Optional[str] = typer.Option(None, help="Your preferences (e.g., 'near beach, with pool')")
+    rooms: int = typer.Option(1, help="Number of rooms"),
+    budget: Optional[float] = typer.Option(None, help="Maximum total budget for the entire stay in USD")
 ):
-    """Search for hotels and rank them based on preferences."""
+    """Search for hotels in a destination."""
     # Set default dates if not provided
     if not checkin:
         checkin = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     if not checkout:
         checkout = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
 
+    # Calculate number of nights
+    checkin_date = datetime.strptime(checkin, "%Y-%m-%d")
+    checkout_date = datetime.strptime(checkout, "%Y-%m-%d")
+    num_nights = (checkout_date - checkin_date).days
+
     console.print(f"\n[bold blue]Searching for hotels in {destination}[/bold blue]")
-    console.print(f"Check-in: {checkin}, Check-out: {checkout}, Adults: {adults}")
+    console.print(f"Check-in: {checkin}, Check-out: {checkout} ({num_nights} nights)")
+    console.print(f"Adults: {adults}, Rooms: {rooms}")
+    if budget:
+        console.print(f"Total Budget: ${budget} (approx. ${budget/num_nights:.2f} per night)")
     
     with console.status("[bold green]Searching hotels...[/bold green]"):
         try:
-            results = booking_api.search_hotels(destination, checkin, checkout, adults)
+            results = booking_api.search_hotels(
+                destination=destination,
+                checkin_date=checkin,
+                checkout_date=checkout,
+                adults_number=adults,
+                room_number=rooms,
+                max_price=budget
+            )
             
             if not results.get('results'):
-                console.print("[yellow]No hotels found for your search criteria.[/yellow]")
+                console.print("[yellow]No hotels found matching your criteria.[/yellow]")
                 return
             
-            # Rank hotels if preferences are provided
-            if preferences and results.get('results'):
-                console.print(f"\n[bold]Ranking hotels based on preferences: {preferences}[/bold]")
-                results['results'] = openai_api.rank_hotels(results['results'], preferences)
-
-            # Display results
             display_results(results)
-            
-            # Show help text for details command
-            if results.get('results'):
-                first_hotel = results['results'][0]
-                console.print(f"\n[bold green]To see hotel details, use:[/bold green]")
-                console.print(f"python src/main.py details {first_hotel['hotel_id']}")
                 
         except Exception as e:
             console.print(f"[red]Error: {str(e)}[/red]")
@@ -65,9 +69,9 @@ def display_results(results: dict):
     table.add_column("Hotel ID", style="dim", width=10)
     table.add_column("Hotel Name", width=25)
     table.add_column("Rating", width=20)
-    table.add_column("Price", width=15)
+    table.add_column("Price", width=20)
     table.add_column("Location & Contact", width=40)
-    table.add_column("Facilities", width=40)
+    table.add_column("Facilities", width=35)
 
     for hotel in results['results']:
         # Format rating
@@ -80,7 +84,11 @@ def display_results(results: dict):
 
         # Format price
         price_info = hotel.get('price', {})
-        price = f"{price_info.get('value', 'N/A')} {price_info.get('currency', 'USD')}"
+        price_display = (
+            f"Per night: ${price_info.get('per_night', 'N/A')}\n"
+            f"Total ({price_info.get('num_nights', 0)} nights): "
+            f"${price_info.get('total', 'N/A')} {price_info.get('currency', 'USD')}"
+        )
 
         # Format location and contact
         location_contact = (
@@ -109,7 +117,7 @@ def display_results(results: dict):
             hotel.get('hotel_id', 'N/A'),
             hotel.get('hotel_name', 'N/A'),
             rating_display,
-            price,
+            price_display,
             location_contact,
             facilities
         )

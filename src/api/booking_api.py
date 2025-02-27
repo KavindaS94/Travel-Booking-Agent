@@ -3,6 +3,7 @@ import requests
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from rich.console import Console
+from datetime import datetime
 
 load_dotenv()
 console = Console()
@@ -22,12 +23,23 @@ class BookingAPI:
                      checkin_date: str, 
                      checkout_date: str, 
                      adults_number: int,
-                     room_number: int = 1) -> Dict[str, Any]:
+                     room_number: int = 1,
+                     max_price: float = None) -> Dict[str, Any]:
         """Search for hotels in a specific destination."""
         # First get destination ID
         dest_id = self._get_destination_id(destination)
         if not dest_id:
             return {"results": []}
+
+        # Calculate number of nights
+        checkin = datetime.strptime(checkin_date, "%Y-%m-%d")
+        checkout = datetime.strptime(checkout_date, "%Y-%m-%d")
+        num_nights = (checkout - checkin).days
+
+        # Calculate price per night if total budget is provided
+        price_per_night = None
+        if max_price is not None:
+            price_per_night = float(max_price) / num_nights if num_nights > 0 else max_price
 
         # Search for hotels using destination ID
         endpoint = f"{self.base_url}/hotels/searchHotels"
@@ -37,12 +49,16 @@ class BookingAPI:
             "arrival_date": checkin_date,
             "departure_date": checkout_date,
             "adults": str(adults_number),
-            "children_age": "0,17",
             "room_qty": str(room_number),
             "page_number": "1",
             "units": "metric",
             "currency_code": "USD"
         }
+        
+        # Add price filter if provided
+        if price_per_night is not None:
+            params["price_min"] = "1"
+            params["price_max"] = str(int(price_per_night))
         
         try:
             response = requests.get(endpoint, headers=self.headers, params=params)
@@ -67,6 +83,22 @@ class BookingAPI:
                     checkout_date
                 )
                 
+                # Extract price value and calculate total price
+                price_per_night_value = price_data.get('value', 'N/A')
+                total_price = None
+                
+                try:
+                    if price_per_night_value != 'N/A':
+                        price_per_night_value = float(price_per_night_value)
+                        total_price = price_per_night_value * num_nights
+                except (ValueError, TypeError):
+                    pass
+                
+                # Skip hotels with total price higher than budget
+                if max_price is not None and total_price is not None:
+                    if total_price > max_price:
+                        continue
+                
                 hotel_data = {
                     'hotel_id': str(hotel.get('hotel_id', '')),
                     'hotel_name': property_data.get('name', 'N/A'),
@@ -76,8 +108,10 @@ class BookingAPI:
                         'reviews_count': property_data.get('reviewCount', 0)
                     },
                     'price': {
-                        'value': price_data.get('value', 'N/A'),
-                        'currency': price_data.get('currency', 'USD')
+                        'per_night': price_per_night_value,
+                        'total': total_price,
+                        'currency': price_data.get('currency', 'USD'),
+                        'num_nights': num_nights
                     },
                     'address': hotel_details.get('address', 'N/A'),
                     'location': f"{hotel_details.get('city', 'N/A')}, {hotel_details.get('country', 'N/A')}",
@@ -170,4 +204,27 @@ class BookingAPI:
         }
         
         response = requests.get(endpoint, headers=self.headers, params=params)
-        return response.json() 
+        return response.json()
+
+    def rank_hotels(self, hotels: list, preferences: str) -> list:
+        """Rank hotels based on user preferences."""
+        # Implementation of ranking logic based on preferences
+        # This is a placeholder and should be replaced with actual implementation
+        return hotels
+
+    def search_hotels_with_preferences(self, 
+                                      destination: str, 
+                                      checkin_date: str, 
+                                      checkout_date: str, 
+                                      adults_number: int,
+                                      room_number: int = 1,
+                                      max_price: float = None,
+                                      preferences: str = None) -> Dict[str, Any]:
+        """Search for hotels in a specific destination with user preferences."""
+        results = self.search_hotels(destination, checkin_date, checkout_date, adults_number, room_number, max_price)
+        
+        if preferences and results.get('results'):
+            console.print(f"\n[bold]Ranking hotels based on preferences: {preferences}[/bold]")
+            results['results'] = self.rank_hotels(results['results'], preferences)
+        
+        return results 
