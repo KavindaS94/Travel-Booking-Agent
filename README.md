@@ -1,40 +1,88 @@
-# Travel-Booking-Agent
+# Hotel Booking Agent
 
-An intelligent terminal-based travel booking assistant that combines Booking.com's powerful API with OpenAI to provide personalized hotel recommendations and travel planning assistance.
+A command-line interface tool for searching and booking hotels with advanced filtering capabilities.
 
-## Features
+## Prerequisites
 
-- Interactive command-line interface for travel planning powered by OpenAI
-- Smart hotel search and recommendations using Booking.com API
-- AI-powered ranking and sorting of hotels based on user preferences
-- Detailed hotel information including amenities and reviews
-- Price comparison and budget optimization
-- Location-based nearby hotel search
-- Multi-language support
-- Data caching for faster responses
+- Python 3.9 or higher
+- Docker (optional, for containerized deployment)
+- OpenAI API key
 
-## Tech Stack
+## Installation
 
-- Python 3.8+
-- OpenAI API for natural language processing
-- Booking.com API via RapidAPI
-- Rich library for beautiful terminal output
-- SQLite for local caching
-- Python-dotenv for environment management
+### Option 1: Local Installation
+
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/hotel-booking-cli.git
+cd hotel-booking-cli
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Create a `.env` file with your API key:
+```plaintext
+OPENAI_API_KEY=your_api_key_here
+```
+
+### Option 2: Docker Installation
+
+Build the Docker image:
+```bash
+docker build -t hotel-booking-cli .
+```
+
+## Usage
+
+### Search for Hotels
+
+Basic search command structure:
+```bash
+docker run -it --env-file .env -v ${PWD}/cache:/app/cache hotel-booking-cli search [CITIES] [OPTIONS]
+```
+
+Example search with all parameters:
+```bash
+docker run -it --env-file .env -v ${PWD}/cache:/app/cache hotel-booking-cli search "Mumbai, Delhi" \
+    --checkin 2025-03-02 \
+    --checkout 2025-04-05 \
+    --adults 10 \
+    --rooms 4 \
+    --budget 5000000 \
+    --preferences "pool,wifi"
+```
+
+### Parameters Explained
+
+- `CITIES`: Comma-separated list of cities to search (e.g., "Mumbai, Delhi")
+- `--checkin`: Check-in date (YYYY-MM-DD format)
+- `--checkout`: Check-out date (YYYY-MM-DD format)
+- `--adults`: Number of adult guests
+- `--rooms`: Number of rooms required
+- `--budget`: Maximum budget in local currency
+- `--preferences`: Comma-separated list of amenities (e.g., "pool,wifi")
+
+### Cache Management
+
+The tool uses a local cache directory to store search results. Mount it using:
+```bash
+-v ${PWD}/cache:/app/cache
+```
 
 ## Project Structure
 
-## Getting Started
+```plaintext
+hotel-booking-cli/
+├── src/
+├── Dockerfile
+├── requirements.txt
+├── .env
+└── README.md
+```
 
-To use the Travel Booking Agent:
+## Dependencies
 
-1. Clone this repository
-2. Install the required dependencies
-3. Run the application
-4. Start planning your trip through the chat interface
-
-## Technologies Used
-
-- Python
-- Natural Language Processing
-- API integrations for travel services
+See `requirements.txt` for the complete list of dependencies.
