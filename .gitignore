@@ -42,6 +42,7 @@ cache/
 *.sqlite3
 
 # API Keys and Secrets
+.env
 .env.local
 .env.*.local
 .env.development
