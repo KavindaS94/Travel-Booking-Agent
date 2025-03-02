@@ -76,7 +76,7 @@ def display_multiple_results(results: dict, show_ranking: bool = False):
     locations_data = results.get('locations', {})
     
     for location, hotels in locations_data.items():
-        console.print(f"\n[bold blue]Top Rated Hotels for the requirement{location}:[/bold blue]")
+        console.print(f"\n[bold blue]Top Rated Hotels for the requirement in {location}:[/bold blue]")
         
         if not hotels:
             console.print(f"[yellow]No hotels found in {location}[/yellow]")
